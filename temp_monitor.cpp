@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include "../driver/tempsensor_ioctl.h"
+#include "tempsensor_ioctl.h"
 
 enum class State { NORMAL, WARNING, CRITICAL };
 
@@ -50,14 +50,19 @@ static std::string timestamp()
     return std::string(buf);
 }
 
-static double read_temperature(int fd)
+static double read_temperature(const char *dev_path)
 {
     char buf[16] = {0};
-    if (lseek(fd, 0, SEEK_SET) < 0) {
-        perror("lseek");
+
+    int fd = open(dev_path, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
         return -1.0;
     }
+
     ssize_t n = read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+
     if (n <= 0) {
         perror("read");
         return -1.0;
@@ -106,7 +111,7 @@ int main(int argc, char *argv[])
     printf("[%s] Initial state: %s\n", timestamp().c_str(), state_name(current_state));
 
     while (true) {
-        double temp = read_temperature(fd);
+        double temp = read_temperature(dev_path);
         if (temp < 0) {
             fprintf(stderr, "[%s] Failed to read sensor, retrying...\n",
                     timestamp().c_str());
